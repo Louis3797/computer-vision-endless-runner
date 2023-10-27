@@ -1,12 +1,13 @@
 import math
+
 import cv2
 import numpy as np
 import pygame
+
 from src.entities.Character import Character
 from src.entities.Trail import Trail
-from src.tiles.Tilemap import Tilemap
-from src.tiles.Tileset import Tileset
-from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_RECT_MARGIN, WINDOW_CAPTION
+from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_RECT_MARGIN, \
+    WINDOW_CAPTION
 
 # Paths to character sprites and images
 character_sprite_paths = [
@@ -35,7 +36,7 @@ def main():
     ground_tiles = math.ceil(HEIGHT / ground_image.get_height()) + 1
 
     # Load and scale ski gondola image
-    gondola_image = pygame.image.load(gondola_image_foreground).convert().convert_alpha()
+    gondola_image = pygame.image.load(gondola_image_foreground).convert_alpha()
     gondola_image = pygame.transform.scale(gondola_image, (gondola_image.get_width() * 4, gondola_image.get_height() * 4))
     scroll_gondola = 0
     gondola_tiles = math.ceil(HEIGHT / gondola_image.get_height()) + 1
@@ -45,7 +46,7 @@ def main():
     all_sprites = pygame.sprite.Group()
     all_sprites.add(character)
 
-    trail = Trail(max_length=500)
+    trail = Trail(max_length=50)
 
     running = True
     while running:
@@ -66,9 +67,6 @@ def main():
         # Clear the screen
         screen.fill((0, 0, 0))
 
-
-        character.kill()
-
         # Draw the ground tiles
         i = 0
         while i < ground_tiles:
@@ -85,12 +83,10 @@ def main():
 
         # Add the character frame to the trail
         trail.add_frame(character.rect)
+        trail.update()
         trail.draw(screen)  # Draw the trail on the screen
         # Draw all sprites
         all_sprites.draw(screen)
-
-
-
 
         # Draw the gondola tiles
         b = 0
@@ -106,7 +102,7 @@ def main():
         ret, frame = cap.read()
         if ret:
 
-            # Todo do frame in algo
+            # Todo put frames in algo
 
             frame = cv2.resize(frame, (CAMERA_WIDTH, CAMERA_HEIGHT))
             frame = np.rot90(frame)
