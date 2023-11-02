@@ -29,6 +29,7 @@ def main():
     # Initialize the camera capture
     cap = cv2.VideoCapture(0)
 
+
     # Load and scale ground image
     ground_image = pygame.image.load(background_image).convert()
     ground_image = pygame.transform.scale(ground_image, (ground_image.get_width() * 4, ground_image.get_height() * 4))
