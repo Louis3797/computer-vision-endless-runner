@@ -82,7 +82,7 @@ def background_subtraction(camera_capture, num_frames=50, scale_factor=0.5, init
             post_processed_result = cv2.threshold(post_processed_result, thresh, 255, cv2.THRESH_BINARY)[1]
 
             # Display the original frame and the post-processed result
-            # cv2.imshow("Live Camera Feed", frame)
+            cv2.imshow("Live Camera Feed", frame)
             cv2.imshow("Foreground Detection", post_processed_result)
 
         # Press 'q' to exit the program
