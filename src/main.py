@@ -27,7 +27,7 @@ def main():
     clock = pygame.time.Clock()
 
     # Initialize the camera capture
-    # cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0)
 
     # Load and scale ground image
     ground_image = pygame.image.load(background_image).convert()
@@ -99,7 +99,6 @@ def main():
             scroll_gondola = 0
 
         # Capture a frame from the camera
-        """
         ret, frame = cap.read()
         if ret:
 
@@ -110,10 +109,10 @@ def main():
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             camera_surface = pygame.surfarray.make_surface(frame)
             screen.blit(camera_surface, (WIDTH - CAMERA_WIDTH - CAMERA_RECT_MARGIN, CAMERA_RECT_MARGIN))
-        """
+
         pygame.display.update()
 
-    # cap.release()
+    cap.release()
     pygame.quit()
 
 if __name__ == "__main__":
