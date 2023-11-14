@@ -20,7 +20,7 @@ while True:
     # to clean up the mask or use it for object detection.
 
     # Display the original frame and the foreground mask
-    cv2.imshow('Original Frame', frame)
+    # cv2.imshow('Original Frame', frame)
     cv2.imshow('Foreground Mask', fg_mask)
 
     # Exit the loop when the 'q' key is pressed
