@@ -32,13 +32,13 @@ collected_coins_score = 0
 
 background_frames = []
 frame_count = 0
-prev_frame = None
 
 
 def load_digit_images(scale_factor=3):
     digit_images = [pygame.transform.scale(
-        pygame.image.load(f"assets/images/kenney_tiny-ski/Tiles/tile_00{84 + i}.png").convert_alpha(), (16 * scale_factor, 16 * scale_factor))
-                    for i in range(10)]
+        pygame.image.load(f"assets/images/kenney_tiny-ski/Tiles/tile_00{84 + i}.png").convert_alpha(),
+        (16 * scale_factor, 16 * scale_factor))
+        for i in range(10)]
     return digit_images
 
 
@@ -169,27 +169,26 @@ def main():
             # Display the collected coin count
         # coin_text = font.render(f"Coins: {collected_coins_score}", True, (0, 0, 0))
         coin_text = render_score(collected_coins_score, digit_images)
-        screen.blit(coin_text, (WIDTH /2 - (coin_text.get_width() /2), 10))
+        screen.blit(coin_text, (WIDTH / 2 - (coin_text.get_width() / 2), 10))
 
         # Capture a frame from the camera
         ret, frame = cap.read()
         if ret:
-            # Todo put frames in algo
-            frame = np.rot90(frame)
-            # frame = np.rot90(frame)
-            # frame = np.rot90(frame)
-            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            result = background_subtraction(frame, frame_count, background_frames, prev_frame, num_frames=100,
-                                                    scale_factor=0.3, initial_threshold_median=45,
-                                                    initial_threshold_fd=25, learning_rate=0.1,
-                                                    update_interval=20, bs_weight=0.7,
-                                                    fd_weight=1, min_contour_area=200, min_object_size=100)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            if result is not None:
-                result = cv2.resize(result, (CAMERA_WIDTH, CAMERA_HEIGHT))
-                camera_surface = pygame.surfarray.make_surface(result)
-                screen.blit(camera_surface, (WIDTH - CAMERA_WIDTH - CAMERA_RECT_MARGIN, CAMERA_RECT_MARGIN))
+            result = background_subtraction(frame, frame_count, background_frames, num_frames=50,
+                                            scale_factor=0.2, initial_threshold_median=14,
+                                            initial_threshold_fd=4, learning_rate=0.1,
+                                            update_interval=20, bs_weight=0.5,
+                                            fd_weight=1)
+
+
+            result = cv2.resize(result, (CAMERA_WIDTH, CAMERA_HEIGHT))
+
+            result = np.rot90(result)
+            camera_surface = pygame.surfarray.make_surface(result)
+            screen.blit(camera_surface, (WIDTH - CAMERA_WIDTH - CAMERA_RECT_MARGIN, CAMERA_RECT_MARGIN))
 
         pygame.display.update()
 
