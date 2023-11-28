@@ -1,0 +1,7 @@
+opencv-python==4.8.1.78
+numpy==1.26.2
+pybind11==2.11.1
+Cython==3.0.6
+pygame==2.5.2
+scikit-image==0.22.0
+matplotlib==3.7.1
