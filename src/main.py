@@ -12,7 +12,7 @@ from src.entities.Trail import Trail
 from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_RECT_MARGIN, \
     WINDOW_CAPTION
 
-import hog.cv_hog as cv_hog
+from bindings.hog import HOG
 
 # Paths to character sprites and images
 character_sprite_paths = [
@@ -180,8 +180,9 @@ def main():
 
             grey = cv2.resize(grey, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
 
-            fd, h = cv_hog.hog(grey, orientations=9, pixels_per_cell=(8, 8),
-                    cells_per_block=(2, 2), visualize=True, transform_sqrt=True, flatten=True)
+            fd, h = HOG().compute(grey, orientations=9, pixels_per_cell=(8, 8),
+                                      cells_per_block=(2, 2), sobel=False, visualize=True,
+                                      normalize_input=True, flatten=True)
             print(fd.shape)
 
             cv2.imshow("h", h)

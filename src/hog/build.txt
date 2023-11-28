@@ -1,6 +1,0 @@
-Note: Delete the build directory beforehand
-===========================================
-
-mkdir build && cd build                                                                    ✔  7s    12:51:23 
-cmake ..
-cmake --build .
