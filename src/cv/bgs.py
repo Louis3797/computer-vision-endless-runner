@@ -9,14 +9,13 @@ def background_subtraction(frame, frame_count, background_frames, num_frames=50,
                            initial_threshold_fd=15, learning_rate=0.02,
                            update_interval=20,
                            bs_weight=0.5, fd_weight=0.5):
-
     global prev_frame
     # Define a kernel for morphological operations
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 
     # Resize the frame to a smaller size
-    frame = cv2.resize(frame, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_AREA)
 
+    frame = cv2.resize(frame, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_AREA)
     # Convert the frame to grayscale
     gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -79,7 +78,6 @@ def background_subtraction(frame, frame_count, background_frames, num_frames=50,
 
     # Flip the result horizontally
     result = cv2.flip(result, 1)
-
 
     thresh = 127
     post_processed_result = cv2.threshold(result, thresh, 255, cv2.THRESH_BINARY)[1]

@@ -1,0 +1,3 @@
+/Users/louis/PycharmProjects/cv_project/src/hog/libhog/build/CMakeFiles/cv_hog.dir
+/Users/louis/PycharmProjects/cv_project/src/hog/libhog/build/CMakeFiles/edit_cache.dir
+/Users/louis/PycharmProjects/cv_project/src/hog/libhog/build/CMakeFiles/rebuild_cache.dir

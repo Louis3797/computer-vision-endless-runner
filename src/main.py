@@ -1,16 +1,18 @@
 import math
+import random
 
 import cv2
 import numpy as np
 import pygame
-import random
+from skimage.feature import hog
 
-from src.cv.bgs import background_subtraction
 from src.entities.Character import Character
 from src.entities.Coin import Coin
 from src.entities.Trail import Trail
 from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_RECT_MARGIN, \
     WINDOW_CAPTION
+
+import hog.cv_hog as cv_hog
 
 # Paths to character sprites and images
 character_sprite_paths = [
@@ -174,17 +176,17 @@ def main():
         # Capture a frame from the camera
         ret, frame = cap.read()
         if ret:
+            grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            grey = cv2.resize(grey, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
 
-            result = background_subtraction(frame, frame_count, background_frames, num_frames=50,
-                                            scale_factor=0.2, initial_threshold_median=14,
-                                            initial_threshold_fd=4, learning_rate=0.1,
-                                            update_interval=20, bs_weight=0.5,
-                                            fd_weight=1)
+            fd, h = cv_hog.hog(grey, orientations=9, pixels_per_cell=(8, 8),
+                    cells_per_block=(2, 2), visualize=True, transform_sqrt=True, flatten=True)
+            print(fd.shape)
 
+            cv2.imshow("h", h)
 
-            result = cv2.resize(result, (CAMERA_WIDTH, CAMERA_HEIGHT))
+            result = cv2.resize(h, (CAMERA_WIDTH, CAMERA_HEIGHT))
 
             result = np.rot90(result)
             camera_surface = pygame.surfarray.make_surface(result)
