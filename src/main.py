@@ -5,10 +5,6 @@ import cv2
 import numpy as np
 import pygame
 
-import sys
-sys.path.append('C:/Users/janra/PycharmProjects/computer-vision-endless-runner/src/')
-
-from bindings.hog import HOG
 from src.entities.Character import Character
 from src.entities.Coin import Coin
 from src.entities.Trail import Trail
@@ -16,6 +12,7 @@ from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, 
     WINDOW_CAPTION
 
 
+# from bindings.hog import HOG
 
 
 # Paths to character sprites and images
