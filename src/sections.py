@@ -3,6 +3,13 @@ import numpy as np
 import time
 import random
 
+
+def calculate_intersection(box1, box2):
+    x_overlap = max(0, min(box1[0] + box1[2], box2[0] + box2[2]) - max(box1[0], box2[0]))
+    y_overlap = max(0, min(box1[1] + box1[3], box2[1] + box2[3]) - max(box1[1], box2[1]))
+    return x_overlap * y_overlap
+
+
 class BoundingBoxProcessor:
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
@@ -38,44 +45,35 @@ class BoundingBoxProcessor:
             section2 = (self.width // 3, 0, self.width // 3, self.height)
             section3 = ((self.width // 3) * 2, 0, self.width // 3, self.height)
 
-            # Calculate intersection areas
-            intersection1 = (min(section1[0] + section1[2], bounding_box[0] + bounding_box[2]) - max(section1[0], bounding_box[0])) * \
-                            (min(section1[1] + section1[3], bounding_box[1] + bounding_box[3]) - max(section1[1], bounding_box[1]))
+            intersection1 = calculate_intersection(section1, bounding_box)
+            intersection2 = calculate_intersection(section2, bounding_box)
+            intersection3 = calculate_intersection(section3, bounding_box)
 
-            intersection2 = (min(section2[0] + section2[2], bounding_box[0] + bounding_box[2]) - max(section2[0], bounding_box[0])) * \
-                            (min(section2[1] + section2[3], bounding_box[1] + bounding_box[3]) - max(section2[1], bounding_box[1]))
-
-            intersection3 = (min(section3[0] + section3[2], bounding_box[0] + bounding_box[2]) - max(section3[0], bounding_box[0])) * \
-                            (min(section3[1] + section3[3], bounding_box[1] + bounding_box[3]) - max(section3[1], bounding_box[1]))
-
-            # Calculate union areas
             union1 = (section1[2] * section1[3]) + (bounding_box[2] * bounding_box[3]) - intersection1
             union2 = (section2[2] * section2[3]) + (bounding_box[2] * bounding_box[3]) - intersection2
             union3 = (section3[2] * section3[3]) + (bounding_box[2] * bounding_box[3]) - intersection3
 
-            # Calculate IoU values
             iou1 = intersection1 / union1
             iou2 = intersection2 / union2
             iou3 = intersection3 / union3
 
-            # Determine which section the bounding box belongs to based on the highest IoU
             iou_values = [iou1, iou2, iou3]
             section = iou_values.index(max(iou_values)) + 1
 
-            # Draw the text indicating the section
             section_text = f"Section: {section}"
             cv2.putText(frame, section_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
-            # Draw the rectangles for sections and bounding box
-            cv2.rectangle(frame, (section1[0], section1[1]), (section1[0] + section1[2], section1[1] + section1[3]), (255, 0, 0), 2)  # Blue
-            cv2.rectangle(frame, (section2[0], section2[1]), (section2[0] + section2[2], section2[1] + section2[3]), (0, 255, 0), 2)  # Green
-            cv2.rectangle(frame, (section3[0], section3[1]), (section3[0] + section3[2], section3[1] + section3[3]), (0, 0, 255), 2)  # Red
-            cv2.rectangle(frame, (bounding_box[0], bounding_box[1]), (bounding_box[0] + bounding_box[2], bounding_box[1] + bounding_box[3]), (255, 255, 0), 2)  # Yellow
+            rectangles = [section1, section2, section3, bounding_box]
+            colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
+
+            for rect, color in zip(rectangles, colors):
+                cv2.rectangle(frame, (rect[0], rect[1]), (rect[0] + rect[2], rect[1] + rect[3]), color, 2)
 
             cv2.imshow("Split Frame", frame)
 
             if cv2.waitKey(1) == 27:
                 break
+
 
 if __name__ == "__main__":
     processor = BoundingBoxProcessor()
