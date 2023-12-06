@@ -29,7 +29,7 @@ class BoundingBoxProcessor:
         self.cap.release()
         cv2.destroyAllWindows()
 
-    def process_frames(self):
+    def process_frames(self, x1, y1, x2, y2):
         while True:
             ret, frame = self.cap.read()
 
@@ -77,4 +77,8 @@ class BoundingBoxProcessor:
 
 if __name__ == "__main__":
     processor = BoundingBoxProcessor()
-    processor.process_frames()
+    x1 = 0
+    y1 = 0
+    x2 = 0
+    y2 = 0
+    processor.process_frames(x1, y1, x2, y2)
