@@ -4,7 +4,6 @@ import random
 import cv2
 import numpy as np
 import pygame
-from skimage.feature import hog
 
 from src.entities.Character import Character
 from src.entities.Coin import Coin
@@ -12,7 +11,9 @@ from src.entities.Trail import Trail
 from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_RECT_MARGIN, \
     WINDOW_CAPTION
 
-from bindings.hog import HOG
+
+# from bindings.hog import HOG
+
 
 # Paths to character sprites and images
 character_sprite_paths = [
@@ -175,23 +176,23 @@ def main():
 
         # Capture a frame from the camera
         ret, frame = cap.read()
-        if ret:
-            grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-            grey = cv2.resize(grey, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
-
-            fd, h = HOG().compute(grey, orientations=9, pixels_per_cell=(8, 8),
-                                      cells_per_block=(2, 2), sobel=False, visualize=True,
-                                      normalize_input=True, flatten=True)
-            print(fd.shape)
-
-            cv2.imshow("h", h)
-
-            result = cv2.resize(h, (CAMERA_WIDTH, CAMERA_HEIGHT))
-
-            result = np.rot90(result)
-            camera_surface = pygame.surfarray.make_surface(result)
-            screen.blit(camera_surface, (WIDTH - CAMERA_WIDTH - CAMERA_RECT_MARGIN, CAMERA_RECT_MARGIN))
+        # if ret:
+        #     grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        #
+        #     grey = cv2.resize(grey, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
+        #
+        #     fd, h = HOG().compute(grey, orientations=9, pixels_per_cell=(8, 8),
+        #                           cells_per_block=(2, 2), sobel=False, visualize=True,
+        #                           normalize_input=True, flatten=True)
+        #     print(fd.shape)
+        #
+        #     cv2.imshow("h", h)
+        #
+        #     result = cv2.resize(h, (CAMERA_WIDTH, CAMERA_HEIGHT))
+        #
+        #     result = np.rot90(result)
+        #     camera_surface = pygame.surfarray.make_surface(result)
+        #     screen.blit(camera_surface, (WIDTH - CAMERA_WIDTH - CAMERA_RECT_MARGIN, CAMERA_RECT_MARGIN))
 
         pygame.display.update()
 
