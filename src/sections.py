@@ -1,84 +1,76 @@
 import cv2
-import numpy as np
-import time
-import random
+
+from src.optical_flow import track_optical_flow
 
 
-def calculate_intersection(box1, box2):
-    x_overlap = max(0, min(box1[0] + box1[2], box2[0] + box2[2]) - max(box1[0], box2[0]))
-    y_overlap = max(0, min(box1[1] + box1[3], box2[1] + box2[3]) - max(box1[1], box2[1]))
-    return x_overlap * y_overlap
+def calculate_sections(width, height):
+    section1 = (0, 0, width // 3, height)
+    section2 = (width // 3, 0, (width // 3) * 2, height)
+    section3 = ((width // 3) * 2, 0, width, height)
+    return [section1, section2, section3]
 
 
-class BoundingBoxProcessor:
-    def __init__(self):
-        self.cap = cv2.VideoCapture(0)
-        if not self.cap.isOpened():
-            print("Error opening camera")
-            exit(-1)
+def draw_sections(frame, sections):
+    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+    for rect, color in zip(sections, colors):
+        cv2.rectangle(frame, (rect[0], rect[1]), (rect[2], rect[3]), color, 2)
 
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1600)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 900)
 
-        self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+def process_frames(frame, dot, sections):
+    if dot < sections[0][2]:
+        section_text = "Section: 1"
+    elif sections[1][0] <= dot < sections[1][2]:
+        section_text = "Section: 2"
+    else:
+        section_text = "Section: 3"
 
-        cv2.namedWindow("Split Frame", cv2.WINDOW_NORMAL)
-
-    def __del__(self):
-        self.cap.release()
-        cv2.destroyAllWindows()
-
-    def process_frames(self, x1, y1, x2, y2):
-        while True:
-            ret, frame = self.cap.read()
-
-            if not ret or frame is None:
-                print("No frame captured from camera")
-                break
-
-            time.sleep(1)
-            random_x = random.randint(0, self.width - (self.width // 3))
-            bounding_box = (random_x, self.height // 4, self.width // 3, self.height // 2)
-
-            section1 = (0, 0, self.width // 3, self.height)
-            section2 = (self.width // 3, 0, self.width // 3, self.height)
-            section3 = ((self.width // 3) * 2, 0, self.width // 3, self.height)
-
-            intersection1 = calculate_intersection(section1, bounding_box)
-            intersection2 = calculate_intersection(section2, bounding_box)
-            intersection3 = calculate_intersection(section3, bounding_box)
-
-            union1 = (section1[2] * section1[3]) + (bounding_box[2] * bounding_box[3]) - intersection1
-            union2 = (section2[2] * section2[3]) + (bounding_box[2] * bounding_box[3]) - intersection2
-            union3 = (section3[2] * section3[3]) + (bounding_box[2] * bounding_box[3]) - intersection3
-
-            iou1 = intersection1 / union1
-            iou2 = intersection2 / union2
-            iou3 = intersection3 / union3
-
-            iou_values = [iou1, iou2, iou3]
-            section = iou_values.index(max(iou_values)) + 1
-
-            section_text = f"Section: {section}"
-            cv2.putText(frame, section_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-
-            rectangles = [section1, section2, section3, bounding_box]
-            colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
-
-            for rect, color in zip(rectangles, colors):
-                cv2.rectangle(frame, (rect[0], rect[1]), (rect[0] + rect[2], rect[1] + rect[3]), color, 2)
-
-            cv2.imshow("Split Frame", frame)
-
-            if cv2.waitKey(1) == 27:
-                break
+    cv2.putText(frame, section_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    draw_sections(frame, sections)
 
 
 if __name__ == "__main__":
-    processor = BoundingBoxProcessor()
-    x1 = 0
-    y1 = 0
-    x2 = 0
-    y2 = 0
-    processor.process_frames(x1, y1, x2, y2)
+    cap = cv2.VideoCapture(1)
+
+    if not cap.isOpened():
+        print("Error opening camera")
+        exit(-1)
+
+    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+    sections = calculate_sections(width, height)
+
+    bbox = [500, 25, 300, 300]
+
+    prev_gray = None
+    prev_dot = None
+
+    while True:
+        ret, frame = cap.read()
+
+        if not ret or frame is None:
+            print("No frame captured from camera")
+            break
+
+        if prev_gray is None:
+            prev_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            continue
+
+        prev_gray, prev_dot, bbox = track_optical_flow(prev_gray, frame, prev_dot, bbox)
+
+        cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+
+        cv2.circle(frame, (int(prev_dot[0]), int(prev_dot[1])), 5, (255, 0, 0), -1)
+
+        process_frames(frame, prev_dot[0], sections)
+
+        cv2.imshow("Split Frame", frame)
+
+        if cv2.waitKey(1) == 27:
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
