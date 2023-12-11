@@ -115,6 +115,7 @@ def main():
     sections = calculate_sections(width, height)
 
     bbox = [500, 25, 300, 300]
+    # TODO GET BOUNDING BOX FROM DETECTION
 
     prev_gray = None
     prev_dot = None
