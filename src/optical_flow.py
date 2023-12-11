@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
 
-def track_optical_flow(prev_gray, frame, prev_dot, bbox):
 
+def track_optical_flow(prev_gray, frame, prev_dot, bbox):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     dot_center = [(bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2]
@@ -27,7 +27,7 @@ def track_optical_flow(prev_gray, frame, prev_dot, bbox):
 
 
 if __name__ == "__main__":
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
 
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))

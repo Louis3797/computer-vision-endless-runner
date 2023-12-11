@@ -8,9 +8,10 @@ import pygame
 from src.entities.Character import Character
 from src.entities.Coin import Coin
 from src.entities.Trail import Trail
+from src.sections import calculate_sections, process_frames, calculate_dot_section
 from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_RECT_MARGIN, \
     WINDOW_CAPTION
-
+from src.optical_flow import track_optical_flow
 
 # from bindings.hog import HOG
 
@@ -58,6 +59,17 @@ def render_score(score, digit_images, spacing=-10):
     return rendered_score
 
 
+def move_player(player_move, character):
+    if player_move == "Section: 1":
+        character.move('left')
+
+    if player_move == "Section: 2":
+        character.move('middle')
+
+    if player_move == "Section: 3":
+        character.move('right')
+
+
 def main():
     global coin_last_spawn_time, collected_coins_score
     pygame.init()
@@ -96,6 +108,17 @@ def main():
     font = pygame.font.Font(None, 36)
 
     running = True
+
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+    sections = calculate_sections(width, height)
+
+    bbox = [500, 25, 300, 300]
+
+    prev_gray = None
+    prev_dot = None
+
     while running:
         clock.tick(FPS)
 
@@ -176,23 +199,27 @@ def main():
 
         # Capture a frame from the camera
         ret, frame = cap.read()
-        # if ret:
-        #     grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        #
-        #     grey = cv2.resize(grey, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
-        #
-        #     fd, h = HOG().compute(grey, orientations=9, pixels_per_cell=(8, 8),
-        #                           cells_per_block=(2, 2), sobel=False, visualize=True,
-        #                           normalize_input=True, flatten=True)
-        #     print(fd.shape)
-        #
-        #     cv2.imshow("h", h)
-        #
-        #     result = cv2.resize(h, (CAMERA_WIDTH, CAMERA_HEIGHT))
-        #
-        #     result = np.rot90(result)
-        #     camera_surface = pygame.surfarray.make_surface(result)
-        #     screen.blit(camera_surface, (WIDTH - CAMERA_WIDTH - CAMERA_RECT_MARGIN, CAMERA_RECT_MARGIN))
+        if ret:
+
+            if prev_gray is None:
+                prev_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            prev_gray, prev_dot, bbox = track_optical_flow(prev_gray, frame, prev_dot, bbox)
+
+            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+
+            cv2.circle(frame, (int(prev_dot[0]), int(prev_dot[1])), 5, (255, 0, 0), -1)
+
+            player_move = process_frames(frame, prev_dot[0], sections)
+
+            move_player(player_move, character)
+            # result = cv2.resize(frame, (CAMERA_WIDTH, CAMERA_HEIGHT))
+
+            cv2.imshow("Split Frame", frame)
+
+            # result = np.rot90(result)
+            # camera_surface = pygame.surfarray.make_surface(result)
+            # screen.blit(camera_surface, (WIDTH - CAMERA_WIDTH - CAMERA_RECT_MARGIN, CAMERA_RECT_MARGIN))
 
         pygame.display.update()
 

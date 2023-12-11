@@ -17,19 +17,27 @@ def draw_sections(frame, sections):
 
 
 def process_frames(frame, dot, sections):
+    section_text = calculate_dot_section(dot, sections)
+    cv2.putText(frame, section_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    draw_sections(frame, sections)
+    return section_text
+
+
+def calculate_dot_section(dot, sections):
     if dot < sections[0][2]:
         section_text = "Section: 1"
+
     elif sections[1][0] <= dot < sections[1][2]:
         section_text = "Section: 2"
+
     else:
         section_text = "Section: 3"
 
-    cv2.putText(frame, section_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-    draw_sections(frame, sections)
+    return section_text
 
 
 if __name__ == "__main__":
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
         print("Error opening camera")
