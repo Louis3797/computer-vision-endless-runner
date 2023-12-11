@@ -2,8 +2,18 @@ import cv2
 import numpy as np
 
 
+def is_outside_threshold(dot_position, dot_center, threshold):
+    distance = np.linalg.norm(dot_position - dot_center)
+    return distance > threshold
+
+
+def is_outside_screen(dot_position, screen_width):
+    return dot_position[0] < 0 or dot_position[0] > screen_width
+
+
 def track_optical_flow(prev_gray, frame, prev_dot, bbox):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    screen_width = frame.shape[1]  # Get the width of the frame
 
     dot_center = [(bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2]
 
@@ -12,6 +22,14 @@ def track_optical_flow(prev_gray, frame, prev_dot, bbox):
 
     if dot_next is not None:
         dot_position = dot_next.ravel()
+
+        distance_threshold = 200
+        if is_outside_threshold(dot_position, dot_center, distance_threshold):
+            dot_position = prev_dot
+
+        # elif is_outside_screen(dot_position, screen_width):
+        #     dot_position = [screen_width // 2, dot_center[1]]
+
     else:
         dot_position = dot_center
 
