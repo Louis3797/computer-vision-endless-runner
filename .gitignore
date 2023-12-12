@@ -1,3 +1,6 @@
 /.idea
-/dataset
+/dataset/**
 */**/build
+
+/**/output_64_128
+/**/output_96_160
