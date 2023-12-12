@@ -5,6 +5,7 @@
 #ifndef TRACKING_HOG_H
 #define TRACKING_HOG_H
 
+
 #include <Eigen/Dense>
 #include <opencv2/core/eigen.hpp>
 #include "../include/Line.h"
@@ -64,8 +65,8 @@ public:
         }
 
 
-        int s_row = mat_image.rows;
-        int s_col = mat_image.cols;
+        int s_row = transformed_image.rows;
+        int s_col = transformed_image.cols;
 
         int c_row = pixels_per_cell.first;
         int c_col = pixels_per_cell.second;
