@@ -1,0 +1,21 @@
+Note: Delete the build directory beforehand
+===========================================
+
+cd tracking
+
+For Mac and Linux:
+------------------
+mkdir build && cd build
+cmake ..
+cmake --build .
+
+===========================================
+
+For Windows run:
+------------------
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release --target check
+
+Note: Move the .so file from build directory to bindings directory

@@ -13,8 +13,7 @@ from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, 
     WINDOW_CAPTION
 from src.optical_flow import track_optical_flow
 
-# from bindings.hog import HOG
-
+from src.tracking import HOGDescriptor, PersonDetector, PersonTracker
 
 # Paths to character sprites and images
 character_sprite_paths = [
@@ -74,6 +73,26 @@ def main():
     global coin_last_spawn_time, collected_coins_score
     pygame.init()
     pygame.mixer.init()
+
+    # Initialize Tracking classes
+    hogDescriptor = HOGDescriptor(9, (8, 8), (3, 3), 4, False, False, True, True)
+
+    scale_factor = 0.19
+    size = (96, 160)
+    stepSize = (10, 10)
+    detection_threshold_1 = 0.5
+    detection_threshold_2 = 0.5
+    overlap_threshold = 0.6
+    downscale = 1.15
+
+    personDetector = PersonDetector(
+        "/Users/louis/CLionProjects/Tracking/models/svm_model_inria_96_160_with_flipped.xml",
+        "/Users/louis/CLionProjects/Tracking/cmake-build-debug/svm_model_tt_96_160_with_cropped_10000.xml",
+        hogDescriptor, scale_factor,
+        size, stepSize, detection_threshold_1, detection_threshold_2, overlap_threshold,
+        downscale)
+
+    personTracker = PersonTracker(personDetector)
 
     # Initialize Pygame screen and clock
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -201,6 +220,13 @@ def main():
         # Capture a frame from the camera
         ret, frame = cap.read()
         if ret:
+
+            frame = cv2.resize(frame, (365, 205), interpolation=cv2.INTER_AREA)
+            grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            trackRes = personTracker.track(grey)
+
+            print(trackRes)
 
             if prev_gray is None:
                 prev_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)

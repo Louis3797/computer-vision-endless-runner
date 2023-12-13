@@ -1,9 +1,0 @@
-Note: Delete the build directory beforehand
-===========================================
-
-cd libhog
-mkdir build && cd build
-cmake ..
-cmake --build .
-
-Note: Move hog.cpython-311-darwin.so from build to bindings dirctory
