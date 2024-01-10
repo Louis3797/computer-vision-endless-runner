@@ -6,7 +6,7 @@
 #include "../include/HOG.h"
 #include "../include/HOGDescriptor.h"
 #include "../include/PersonDetector.h"
-#include "../include/PersonTracker.h"
+//#include "../include/PersonTracker.h"
 
 namespace py = pybind11;
 
@@ -39,7 +39,7 @@ PYBIND11_MODULE(tracking, m) {
                    const double , const float , const double>())
         .def("detect", &PersonDetector::detect, py::arg("image"));
 
-     py::class_<PersonTracker>(m, "PersonTracker")
-        .def(py::init<PersonDetector &>())
-        .def("track", &PersonTracker::track, py::arg("frame"));
+//     py::class_<PersonTracker>(m, "PersonTracker")
+//        .def(py::init<PersonDetector &>())
+//        .def("track", &PersonTracker::track, py::arg("frame"));
 }

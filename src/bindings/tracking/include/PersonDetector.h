@@ -22,6 +22,8 @@
 #include "../include/NonMaxSuppression.h"
 #include "../include/ImagePyramid.h"
 
+using namespace std;
+
 class PersonDetector {
 private:
     cv::Ptr<cv::ml::SVM> svm_model_1;
@@ -35,6 +37,7 @@ private:
     double detection_threshold_2;
     float overlap_threshold;
     double downscale;
+    cv::Ptr<cv::BackgroundSubtractor> pMOG2 = cv::createBackgroundSubtractorMOG2(200, 16, true);
 
     void loadModels(const std::string &svm_model_1_path, const std::string &svm_model_2_path) {
         try {
@@ -53,18 +56,49 @@ private:
         }
     }
 
+    bool isRectInside(const cv::Rect &innerRect, const cv::Rect &outerRect) {
+        // Check if the inner rectangle's points lie within the outer rectangle
+        return (innerRect.x >= outerRect.x &&
+                innerRect.y >= outerRect.y &&
+                (innerRect.x + innerRect.width) <= (outerRect.x + outerRect.width) &&
+                (innerRect.y + innerRect.height) <= (outerRect.y + outerRect.height));
+    }
+
+
+    void removeRectsInside(std::vector<cv::Rect> &rects) {
+        std::vector<cv::Rect>::iterator it = rects.begin();
+
+        while (it != rects.end()) {
+            bool isInside = false;
+
+            for (const cv::Rect &otherRect: rects) {
+                if (*it != otherRect && isRectInside(*it, otherRect)) {
+                    isInside = true;
+                    break;
+                }
+            }
+
+            if (isInside) {
+                it = rects.erase(it); // Remove the rectangle if it's inside another
+            } else {
+                ++it;
+            }
+        }
+    }
+
 
 public:
 
     PersonDetector(const std::string &svm_model_1_path, const std::string &svm_model_2_path,
                    HOGDescriptor &hogDescriptor,
                    const double scaleFactor,
-                   const std::pair<int, int> &windowSize, const std::pair<int, int> &stepSize, const double detectionThreshold1,
+                   const std::pair<int, int> &windowSize, const std::pair<int, int> &stepSize,
+                   const double detectionThreshold1,
                    const double detectionThreshold2, const float overlapThreshold, const double downscale) :
             hogDescriptor(hogDescriptor),
             scale_factor(scaleFactor),
             window_size(cv::Size(windowSize.first, windowSize.second)),
-            stepSize( cv::Size(stepSize.first, stepSize.second)),
+            stepSize(cv::Size(stepSize.first, stepSize.second)),
             detection_threshold_1(detectionThreshold1),
             detection_threshold_2(detectionThreshold2),
             overlap_threshold(overlapThreshold),
@@ -89,70 +123,175 @@ public:
      * @param image The input image for object detection.
      * @return A pair of vectors containing detected regions (Rectangles) and corresponding confidence scores.
      */
-    std::pair<std::vector<cv::Rect>, std::vector<float>> detect(const Eigen::MatrixXd &image) {
+    std::pair<std::vector<std::vector<int>>, std::vector<float>> detect(const Eigen::MatrixXd &image) {
 
         cv::Mat mat_image;
         cv::eigen2cv(image, mat_image);
 
-        double scale = 0;
+
+//        double scale = 0;
         std::vector<cv::Rect> detections;
         std::vector<float> scores;
 
+
+        cv::Mat fgMask;  // Binary mask to get the foreground
+
+        // Apply background subtraction to get the foreground mask
+        pMOG2->apply(mat_image, fgMask);
+
+//        cv::imshow("FG", fgMask);
+
+        Mat thresh, motionMask;
+
+        cv::threshold(fgMask, motionMask, 10, 255, cv::THRESH_BINARY);
+//        cv::adaptiveThreshold(fgMask, motionMask, 255, cv::ADAPTIVE_THRESH_MEAN_C,
+//                              cv::THRESH_BINARY, 13, 2); // 13
+//        cv::GaussianBlur(thresh, motionMask, cv::Size(3, 3), 0);
+
+        cv::imshow("motionMask none", motionMask);
+
+        cv::dilate(motionMask, motionMask, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3,3)), cv::Size(0,0),3);
+
+        cv::imshow("motionMask dilate", motionMask);
+        // Morphological operations to clean up the mask
+        morphologyEx(motionMask, motionMask, cv::MORPH_OPEN, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5)));
+        cv::imshow("motionMask opening", motionMask);
+
+        morphologyEx(motionMask, motionMask, cv::MORPH_CLOSE, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7,7)));
+////
+        cv::imshow("motionMask all", motionMask);
+        // Find contours in the foreground mask
+        std::vector<std::vector<cv::Point>> contours;
+        std::vector<cv::Vec4i> hierarchy;
+// Find all contours and retrieve the full hierarchy
+        findContours(motionMask, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_L1);
+
+
+        std::vector<std::vector<cv::Point>> approxContours(contours.size());
+        for (size_t i = 0; i < contours.size(); ++i) {
+            cv::approxPolyDP(contours[i], approxContours[i], 5, true); // Adjust epsilon value as needed
+        }
+
+        cv::Mat contour_image = cv::Mat::zeros(motionMask.size(), CV_8UC3);
+        for (size_t i = 0; i < approxContours.size(); ++i) {
+            drawContours(contour_image, approxContours, static_cast<int>(i), cv::Scalar(255, 255, 255), 2, cv::LINE_8, hierarchy);
+        }
+
+        cv::imshow("Contours", contour_image);
+
+
+
         // Generate an image pyramid for multi-scale detection
-        std::vector<cv::Mat> pyramid = ImagePyramid::generate(mat_image, 8, downscale, window_size);
+//        std::vector<cv::Mat> pyramid = ImagePyramid::generate(mat_image, 8, downscale, window_size);
+//
+//        // Generate sliding windows for each scaled frame in the pyramid
+//        std::vector<std::vector<cv::Rect>> sliding_windows;
 
-        // Generate sliding windows for each scaled frame in the pyramid
-        std::vector<std::vector<cv::Rect>> sliding_windows;
+
+//        for (const auto &scaledFrame: pyramid) {
+//            std::vector<cv::Rect> scale_windows;
+//            for (const auto &window: SlidingWindow::generate(scaledFrame, window_size, stepSize)) {
+//                scale_windows.push_back(window);
+//            }
+//            sliding_windows.push_back(scale_windows);
+//        }
+//
+//        // Perform detection on each window in the sliding windows
+//        for (const auto &scale_windows: sliding_windows) {
+//            for (const auto &window: scale_windows) {
 
 
-        for (const auto &scaledFrame: pyramid) {
-            std::vector<cv::Rect> scale_windows;
-            for (const auto &window: SlidingWindow::generate(scaledFrame, window_size, stepSize)) {
-                scale_windows.push_back(window);
+
+        std::vector<cv::Rect> contour_detections;
+
+
+        for (auto &contour: approxContours) {
+            cv::Rect rect = cv::boundingRect(contour);
+
+            if (rect.area() > 10000) { //10000
+
+                contour_detections.push_back(rect);
+//                int x_orig = (int) (rect.x / scale_factor);
+//                int y_orig = (int) (rect.y / scale_factor);
+//                int w_orig = (int) (rect.width / scale_factor);
+//                int h_orig = (int) (rect.height / scale_factor);
+//
+//                contour_detections.push_back(cv::Rect(x_orig, y_orig, w_orig, h_orig));
+//                scores.push_back(1.0);
+
             }
-            sliding_windows.push_back(scale_windows);
         }
 
-        // Perform detection on each window in the sliding windows
-        for (const auto &scale_windows: sliding_windows) {
-            for (const auto &window: scale_windows) {
+//        removeRectsInside(detections);
 
 
 
-                // Extract HOG descriptors for the current window
-                Eigen::MatrixXd eigen_window;
-                cv::cv2eigen(mat_image(window), eigen_window);
-                Eigen::MatrixXd descriptors = this->hogDescriptor.compute(eigen_window);
-                cv::Mat descriptors_mat;
-                cv::eigen2cv(descriptors, descriptors_mat);
+        for (const cv::Rect &window: contour_detections) {
 
-                // Confirm object presence using confirm method
-                std::pair<float, float> res = confirm(descriptors_mat);
+            int x_orig = (int) (window.x / scale_factor);
+            int y_orig = (int) (window.y / scale_factor);
+            int w_orig = (int) (window.width / scale_factor);
+            int h_orig = (int) (window.height / scale_factor);
 
-                // If confirmed, compute original coordinates, add detection and score
-                if (res.first == 1) {
-                    double temp = pow(downscale, scale);
-                    int x_orig = (int) (window.x * temp / scale_factor);
-                    int y_orig = (int) (window.y * temp / scale_factor);
-                    int w_orig = (int) (window_size.width * temp / scale_factor);
-                    int h_orig = (int) (window_size.height * temp / scale_factor);
 
-                    detections.push_back(cv::Rect(x_orig, y_orig, w_orig, h_orig));
-                    double decision = res.second;
-                    scores.push_back(decision);
-                }
+            // Extract the region of interest (ROI) from the original image
+            cv::Rect potential_bbox(x_orig, y_orig, w_orig, h_orig);
+
+
+            cv::Mat roi = mat_image(window);
+
+            // Resize the ROI to the desired window size for SVM input
+            cv::Mat resized_roi;
+            cv::resize(roi, resized_roi, window_size, cv::INTER_AREA);
+
+
+            // Extract HOG descriptors for the current window
+            Eigen::MatrixXd eigen_window;
+            cv::cv2eigen(resized_roi, eigen_window);
+            Eigen::MatrixXd descriptors = this->hogDescriptor.compute(eigen_window);
+            cv::Mat descriptors_mat;
+            cv::eigen2cv(descriptors, descriptors_mat);
+
+            // Confirm object presence using confirm method
+            std::pair<float, float> res = confirm(descriptors_mat);
+
+            // If confirmed, compute original coordinates, add detection and score
+            if (res.first == 1) {
+//                    double temp = pow(downscale, scale);
+
+
+                detections.push_back(potential_bbox);
+                float decision = res.second;
+                scores.push_back(decision);
             }
-            scale++;
         }
+//            scale++;
+
 
 
         // Perform non-maximum suppression to filter detections
         std::vector<cv::Rect> picked = NonMaxSuppression::suppress(detections, scores, overlap_threshold);
 
-        groupRectangles(picked, 1, 0.2);
+        for(auto &p: picked){
+            cout << "area: " << p.area() << endl;
+        }
+
+        std::vector<std::vector<int>> castedRects;
+
+        for (auto &r: picked) {
+            std::vector<int> rectValues;
+            rectValues.push_back(r.x);
+            rectValues.push_back(r.y);
+            rectValues.push_back(r.width);
+            rectValues.push_back(r.height);
+            castedRects.push_back(rectValues);
+        }
 
 
-        return std::make_pair(picked, scores);
+//        groupRectangles(picked, 1, 0.2);
+
+
+        return std::make_pair(castedRects, scores);
     }
 
     /**
@@ -176,8 +315,10 @@ public:
         float pred_1 = predMat_svm_1.at<float>(0, 0);
         float decision_1 = decisionMat_1.at<float>(0, 0);
 
+
+
         // Check condition based on prediction from svm_model_1
-        if (pred_1 == 1 && abs(decision_1) < (1.0 - detection_threshold_1)) {
+        if (pred_1 == 1 && (1.0f - abs(decision_1)) > detection_threshold_1) {
             // Predict using svm_model_2
             cv::Mat predMat_svm_2, decisionMat_2;
             svm_model_2->predict(vecReshaped, predMat_svm_2);
@@ -188,11 +329,11 @@ public:
 
 
             // Check condition based on prediction from svm_model_2
-            if (pred_2 == 1 && abs(decision_2) < (1.0 - detection_threshold_2)) {
+            if (pred_2 == 1 && (1.0f - abs(decision_2)) > detection_threshold_2) {
 
-                float decision = (decision_1 + decision_2) / 2;
+                float decision = ((1.0f - abs(decision_1)) + (1.0f - abs(decision_2))) / 2;
 
-                return std::make_pair(1.0, 1 + decision);
+                return std::make_pair(1.0, decision);
             }
         }
 
