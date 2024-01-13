@@ -32,12 +32,12 @@ PYBIND11_MODULE(tracking, m) {
         .def("compute", &HOGDescriptor::compute, py::arg("image"));
 
      py::class_<PersonDetector>(m, "PersonDetector")
-        .def(py::init<const std::string &, const std::string &,
+        .def(py::init<const std::string &,
                    HOGDescriptor &,
                    const double ,
-                   const std::pair<int, int> &, const std::pair<int, int> &, const double ,
-                   const double , const float , const double>())
-        .def("detect", &PersonDetector::detect, py::arg("image"));
+                   const std::pair<int, int> &, const double ,
+                   const double , const float>())
+        .def("detect", &PersonDetector::detect, py::arg("image"), py::arg("minBboxSize"));
 
 //     py::class_<PersonTracker>(m, "PersonTracker")
 //        .def(py::init<PersonDetector &>())
