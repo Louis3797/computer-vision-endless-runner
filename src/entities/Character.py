@@ -32,16 +32,15 @@ class Character(pygame.sprite.Sprite):
             self.last_frame_time = current_time
 
     def move(self, direction):
-        if direction == 'left' and self.rect.x > 373:
+        if direction == 'left' and self.rect.x > 384:
             self.rect.x -= self.vel
         elif direction == 'right' and self.rect.x < 512:
             self.rect.x += self.vel
 
-        # middle 448
-        elif direction == 'middle' and self.rect.x > 448 or self.rect.x < 448:
+        elif direction == 'middle' and (self.rect.x > 448 or self.rect.x < 448):
             if self.rect.x < 448:
                 self.rect.x += self.vel
             else:
                 self.rect.x -= self.vel
 
-        print(self.rect.x)
+
