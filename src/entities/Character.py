@@ -16,7 +16,7 @@ class Character(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
-        self.vel = 5
+        self.vel = 8
         self.frames = []
 
         # Load and store individual frames from the sprite sheet
