@@ -214,6 +214,8 @@ def main():
         for rock in rocks:
             if character.rect.colliderect(rock.rect):
                 collected_coins_score = 0
+                character.rect.x = 448
+                character.rect.y = HEIGHT // 2 - 100
             if rock.rect.y < -64:
                 # print("Killed rock")
                 rock.kill()
