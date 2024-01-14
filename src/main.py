@@ -194,13 +194,13 @@ def main():
         collected_coins = pygame.sprite.spritecollide(character, coins, True)
         for _ in collected_coins:
             collected_coins_score += 1
-            print("Collected coin!")
-            print(f"Score: {collected_coins_score}")
+            # print("Collected coin!")
+            # print(f"Score: {collected_coins_score}")
 
         # kill coin if its out of the image
         for coin in coins:
             if coin.rect.y < -64:
-                print("Killed coin")
+                # print("Killed coin")
                 coin.kill()
 
         if current_time - rock_last_spawn_time > rock_spawn_delay:
@@ -208,11 +208,14 @@ def main():
             lane_x = random.choice(lanes)
             rock = Obstacle(lane_x, HEIGHT + (i * 64), SCROLL_SPEED, rock_sprite_paths)
             rocks.add(rock)
+            overlapping_rocks = pygame.sprite.spritecollide(rock, coins, True)
             rock_last_spawn_time = current_time
 
         for rock in rocks:
+            if character.rect.colliderect(rock.rect):
+                collected_coins_score = 0
             if rock.rect.y < -64:
-                print("Killed coin")
+                # print("Killed rock")
                 rock.kill()
 
         # Add the character frame to the trail
