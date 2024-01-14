@@ -13,7 +13,7 @@ from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, 
     WINDOW_CAPTION
 from src.optical_flow import track_optical_flow
 
-from src.tracking import HOGDescriptor, PersonDetector, PersonTracker
+# from src.tracking import HOGDescriptor, PersonDetector, PersonTracker
 
 # Paths to character sprites and images
 character_sprite_paths = [
@@ -75,7 +75,7 @@ def main():
     pygame.mixer.init()
 
     # Initialize Tracking classes
-    hogDescriptor = HOGDescriptor(9, (8, 8), (3, 3), 4, False, False, True, True)
+    # hogDescriptor = HOGDescriptor(9, (8, 8), (3, 3), 4, False, False, True, True)
 
     scale_factor = 0.19
     size = (96, 160)
@@ -85,14 +85,14 @@ def main():
     overlap_threshold = 0.6
     downscale = 1.15
 
-    personDetector = PersonDetector(
-        "/Users/louis/CLionProjects/Tracking/models/svm_model_inria_96_160_with_flipped.xml",
-        "/Users/louis/CLionProjects/Tracking/cmake-build-debug/svm_model_tt_96_160_with_cropped_10000.xml",
-        hogDescriptor, scale_factor,
-        size, stepSize, detection_threshold_1, detection_threshold_2, overlap_threshold,
-        downscale)
-
-    personTracker = PersonTracker(personDetector)
+    # personDetector = PersonDetector(
+    #     "/Users/louis/CLionProjects/Tracking/models/svm_model_inria_96_160_with_flipped.xml",
+    #     "/Users/louis/CLionProjects/Tracking/cmake-build-debug/svm_model_tt_96_160_with_cropped_10000.xml",
+    #     hogDescriptor, scale_factor,
+    #     size, stepSize, detection_threshold_1, detection_threshold_2, overlap_threshold,
+    #     downscale)
+    #
+    # personTracker = PersonTracker(personDetector)
 
     # Initialize Pygame screen and clock
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -218,31 +218,31 @@ def main():
         screen.blit(coin_text, (WIDTH / 2 - (coin_text.get_width() / 2), 10))
 
         # Capture a frame from the camera
-        ret, frame = cap.read()
-        if ret:
-
-            frame = cv2.resize(frame, (365, 205), interpolation=cv2.INTER_AREA)
-            grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-            trackRes = personTracker.track(grey)
-
-            print(trackRes)
-
-            if prev_gray is None:
-                prev_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-            prev_gray, prev_dot, bbox = track_optical_flow(prev_gray, frame, prev_dot, bbox)
-
-            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
-
-            cv2.circle(frame, (int(prev_dot[0]), int(prev_dot[1])), 5, (255, 0, 0), -1)
-
-            player_move = process_frames(frame, prev_dot[0], sections)
-
-            move_player(player_move, character)
-            # result = cv2.resize(frame, (CAMERA_WIDTH, CAMERA_HEIGHT))
-
-            cv2.imshow("Split Frame", frame)
+        # ret, frame = cap.read()
+        # if ret:
+        #
+        #     frame = cv2.resize(frame, (365, 205), interpolation=cv2.INTER_AREA)
+        #     grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        #
+        #     trackRes = personTracker.track(grey)
+        #
+        #     print(trackRes)
+        #
+        #     if prev_gray is None:
+        #         prev_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        #
+        #     prev_gray, prev_dot, bbox = track_optical_flow(prev_gray, frame, prev_dot, bbox)
+        #
+        #     cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+        #
+        #     cv2.circle(frame, (int(prev_dot[0]), int(prev_dot[1])), 5, (255, 0, 0), -1)
+        #
+        #     player_move = process_frames(frame, prev_dot[0], sections)
+        #
+        #     move_player(player_move, character)
+        #     # result = cv2.resize(frame, (CAMERA_WIDTH, CAMERA_HEIGHT))
+        #
+        #     cv2.imshow("Split Frame", frame)
 
             # result = np.rot90(result)
             # camera_surface = pygame.surfarray.make_surface(result)
