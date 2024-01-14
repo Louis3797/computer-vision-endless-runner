@@ -7,6 +7,7 @@ import pygame
 
 from src.entities.Character import Character
 from src.entities.Coin import Coin
+from src.entities.Obstacle import Obstacle
 from src.entities.Trail import Trail
 from src.sections import calculate_sections, process_frames, calculate_dot_section
 from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_RECT_MARGIN, \
@@ -24,6 +25,11 @@ coin_sprite_paths = [
     "assets/images/coin_1.png",
     "assets/images/coin_2.png"
 ]
+
+rock_sprite_paths = [
+    "assets/images/kenney_tiny-ski/Tiles/tile_0081.png"
+]
+
 gondola_image_foreground = "assets/images/ski_gondola.png"
 background_image = "assets/images/ground.png"
 
@@ -32,6 +38,9 @@ lanes = [(((WIDTH - (64 * 3)) // 2) + x * 64) for x in range(0, 3)]
 coin_spawn_delay = 2000  # Delay between spawns in milliseconds
 coin_last_spawn_time = 0
 collected_coins_score = 0
+
+rock_spawn_delay = 2000
+rock_last_spawn_time = 0
 
 background_frames = []
 frame_count = 0
@@ -70,7 +79,7 @@ def move_player(player_move, character):
 
 
 def main():
-    global coin_last_spawn_time, collected_coins_score
+    global coin_last_spawn_time, collected_coins_score, rock_last_spawn_time
     pygame.init()
     pygame.mixer.init()
 
@@ -119,6 +128,7 @@ def main():
     character = Character(448, HEIGHT // 2 - 100, character_sprite_paths)
     all_sprites = pygame.sprite.Group()
     coins = pygame.sprite.Group()
+    rocks = pygame.sprite.Group()
     all_sprites.add(character)
 
     trail = Trail(max_length=50)
@@ -193,6 +203,18 @@ def main():
                 print("Killed coin")
                 coin.kill()
 
+        if current_time - rock_last_spawn_time > rock_spawn_delay:
+            # spawn coin
+            lane_x = random.choice(lanes)
+            rock = Obstacle(lane_x, HEIGHT + (i * 64), SCROLL_SPEED, rock_sprite_paths)
+            rocks.add(rock)
+            rock_last_spawn_time = current_time
+
+        for rock in rocks:
+            if rock.rect.y < -64:
+                print("Killed coin")
+                rock.kill()
+
         # Add the character frame to the trail
         trail.add_frame(character.rect)
         trail.update()
@@ -201,6 +223,8 @@ def main():
         all_sprites.draw(screen)
         coins.update(current_time)
         coins.draw(screen)
+        rocks.update(current_time)
+        rocks.draw(screen)
 
         # Draw the gondola tiles
         b = 0
@@ -244,9 +268,9 @@ def main():
         #
         #     cv2.imshow("Split Frame", frame)
 
-            # result = np.rot90(result)
-            # camera_surface = pygame.surfarray.make_surface(result)
-            # screen.blit(camera_surface, (WIDTH - CAMERA_WIDTH - CAMERA_RECT_MARGIN, CAMERA_RECT_MARGIN))
+        # result = np.rot90(result)
+        # camera_surface = pygame.surfarray.make_surface(result)
+        # screen.blit(camera_surface, (WIDTH - CAMERA_WIDTH - CAMERA_RECT_MARGIN, CAMERA_RECT_MARGIN))
 
         pygame.display.update()
 
