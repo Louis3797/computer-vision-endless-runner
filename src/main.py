@@ -10,6 +10,7 @@ from ultralytics import YOLO
 from src.cv.tracking.tracker import Tracker
 from src.entities.Character import Character
 from src.entities.Coin import Coin
+from src.entities.Obstacle import Obstacle
 from src.entities.Trail import Trail
 from src.utils.sections import get_section_with_most_boxes, Sections
 from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_RECT_MARGIN, \
@@ -25,6 +26,13 @@ coin_sprite_paths = [
     "../assets/images/coin_1.png",
     "../assets/images/coin_2.png"
 ]
+
+rock_sprite_paths = [
+    "assets/images/kenney_tiny-ski/Tiles/tile_0081.png"
+]
+
+gondola_image_foreground = "assets/images/ski_gondola.png"
+background_image = "assets/images/ground.png"
 gondola_image_foreground = "../assets/images/ski_gondola.png"
 background_image = "../assets/images/ground.png"
 
@@ -33,6 +41,9 @@ lanes = [(((WIDTH - (64 * 3)) // 2) + x * 64) for x in range(0, 3)]
 coin_spawn_delay = 2000  # Delay between spawns in milliseconds
 coin_last_spawn_time = 0
 collected_coins_score = 0
+
+rock_spawn_delay = 2000
+rock_last_spawn_time = 0
 
 background_frames = []
 frame_count = 0
@@ -43,7 +54,7 @@ cv2.setNumThreads(8);
 
 def load_digit_images(scale_factor=3):
     digit_images = [pygame.transform.scale(
-        pygame.image.load(f"../assets/images/kenney_tiny-ski/Tiles/tile_00{84 + i}.png").convert_alpha(),
+        pygame.image.load(f"assets/images/kenney_tiny-ski/Tiles/tile_00{84 + i}.png").convert_alpha(),
         (16 * scale_factor, 16 * scale_factor))
         for i in range(10)]
     return digit_images
@@ -74,7 +85,7 @@ def move_player(player_move, character):
 
 
 def main():
-    global coin_last_spawn_time, collected_coins_score
+    global coin_last_spawn_time, collected_coins_score, rock_last_spawn_time
     pygame.init()
     pygame.mixer.init()
 
@@ -130,6 +141,7 @@ def main():
     character = Character(448, HEIGHT // 2 - 100, character_sprite_paths)
     all_sprites = pygame.sprite.Group()
     coins = pygame.sprite.Group()
+    rocks = pygame.sprite.Group()
     all_sprites.add(character)
 
     trail = Trail(max_length=50)
@@ -141,7 +153,6 @@ def main():
 
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-
 
     while running:
         clock.tick(FPS)
@@ -188,14 +199,31 @@ def main():
         collected_coins = pygame.sprite.spritecollide(character, coins, True)
         for _ in collected_coins:
             collected_coins_score += 1
-            print("Collected coin!")
-            print(f"Score: {collected_coins_score}")
+            # print("Collected coin!")
+            # print(f"Score: {collected_coins_score}")
 
         # kill coin if its out of the image
         for coin in coins:
             if coin.rect.y < -64:
-                print("Killed coin")
+                # print("Killed coin")
                 coin.kill()
+
+        if current_time - rock_last_spawn_time > rock_spawn_delay:
+            # spawn coin
+            lane_x = random.choice(lanes)
+            rock = Obstacle(lane_x, HEIGHT + (i * 64), SCROLL_SPEED, rock_sprite_paths)
+            rocks.add(rock)
+            overlapping_rocks = pygame.sprite.spritecollide(rock, coins, True)
+            rock_last_spawn_time = current_time
+
+        for rock in rocks:
+            if character.rect.colliderect(rock.rect):
+                collected_coins_score = 0
+                character.rect.x = 448
+                character.rect.y = HEIGHT // 2 - 100
+            if rock.rect.y < -64:
+                # print("Killed rock")
+                rock.kill()
 
         # Add the character frame to the trail
         trail.add_frame(character.rect)
@@ -205,6 +233,8 @@ def main():
         all_sprites.draw(screen)
         coins.update(current_time)
         coins.draw(screen)
+        rocks.update(current_time)
+        rocks.draw(screen)
 
         # Draw the gondola tiles
         b = 0
