@@ -28,11 +28,9 @@ coin_sprite_paths = [
 ]
 
 rock_sprite_paths = [
-    "assets/images/kenney_tiny-ski/Tiles/tile_0081.png"
+    "../assets/images/kenney_tiny-ski/Tiles/tile_0081.png"
 ]
 
-gondola_image_foreground = "assets/images/ski_gondola.png"
-background_image = "assets/images/ground.png"
 gondola_image_foreground = "../assets/images/ski_gondola.png"
 background_image = "../assets/images/ground.png"
 
@@ -54,7 +52,7 @@ cv2.setNumThreads(8);
 
 def load_digit_images(scale_factor=3):
     digit_images = [pygame.transform.scale(
-        pygame.image.load(f"assets/images/kenney_tiny-ski/Tiles/tile_00{84 + i}.png").convert_alpha(),
+        pygame.image.load(f"../assets/images/kenney_tiny-ski/Tiles/tile_00{84 + i}.png").convert_alpha(),
         (16 * scale_factor, 16 * scale_factor))
         for i in range(10)]
     return digit_images
