@@ -12,7 +12,7 @@ namespace py = pybind11;
 
 
 PYBIND11_MODULE(tracking, m) {
-    m.doc() = "Python bindings for c++ code";
+    m.doc() = "Python bindings for the c++ code";
 
      py::class_<HOG>(m, "HOG")
         .def(py::init<>())
@@ -35,11 +35,7 @@ PYBIND11_MODULE(tracking, m) {
         .def(py::init<const std::string &,
                    HOGDescriptor &,
                    const double ,
-                   const std::pair<int, int> &, const double ,
-                   const double , const float>())
+                   const std::pair<int, int> &, const double, const float, const int, const double, const bool, const double, const double>())
         .def("detect", &PersonDetector::detect, py::arg("image"), py::arg("minBboxSize"));
 
-//     py::class_<PersonTracker>(m, "PersonTracker")
-//        .def(py::init<PersonDetector &>())
-//        .def("track", &PersonTracker::track, py::arg("frame"));
 }

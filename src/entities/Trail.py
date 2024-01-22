@@ -5,7 +5,7 @@ from src.utils.constants import HEIGHT, SCROLL_SPEED
 
 class Trail:
     def __init__(self, max_length):
-        self.image = pygame.image.load("assets/images/kenney_tiny-ski/Tiles/tile_0058.png").convert_alpha()
+        self.image = pygame.image.load("../assets/images/kenney_tiny-ski/Tiles/tile_0058.png").convert_alpha()
         self.image = pygame.transform.scale(self.image, (64, 64))
         self.max_length = max_length
         self.trail_images = []  # List to store trail images

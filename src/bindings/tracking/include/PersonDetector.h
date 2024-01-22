@@ -7,6 +7,7 @@
 
 #include <Eigen/Dense>
 #include <iostream>
+#include <stdexcept>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
@@ -15,13 +16,14 @@
 #include <opencv2/core/eigen.hpp>
 #include <vector>
 #include <numeric>
-#include <opencv2/bgsegm.hpp>
-#include <opencv2/ximgproc/segmentation.hpp>
+#include <opencv2/ximgproc/edgeboxes.hpp>
+#include "opencv2/ximgproc.hpp"
 
 #include "../include/HOGDescriptor.h"
 #include "../include/SlidingWindow.h"
 #include "../include/NonMaxSuppression.h"
 #include "../include/ImagePyramid.h"
+
 
 #ifndef DEBUG_MODE
 #define DEBUG_MODE 1 // Set to 1 to enable debug mode, 0 to disable
@@ -30,28 +32,39 @@
 
 using namespace std;
 
+/**
+ * @brief The PersonDetector class for detecting persons using SVM and HOG features.
+ *
+ * The PersonDetector class provides functionality for object detection using a sliding window approach.
+ * It utilizes a Support Vector Machine (SVM) model trained on Histogram of Oriented Gradients (HOG) features
+ * to detect persons in images.
+ */
 class PersonDetector {
 private:
-    cv::Ptr<cv::ml::SVM> svm_model_1;
+    cv::Ptr<cv::ml::SVM> svm_model;
 
     HOGDescriptor hogDescriptor;
     double scale_factor;
     cv::Size window_size;
-    double detection_threshold_1;
-    double detection_threshold_2;
+    double detection_threshold;
     float overlap_threshold;
-    cv::Ptr<cv::BackgroundSubtractor> pMOG2 = cv::createBackgroundSubtractorMOG2(1000, 25, true);
+    double bgs_learning_rate;
+    cv::Ptr<cv::BackgroundSubtractorMOG2> pMOG2;
 
-    cv::Ptr<cv::ximgproc::segmentation::SelectiveSearchSegmentation> ss =
-            cv::ximgproc::segmentation::createSelectiveSearchSegmentation();
 
-    void loadModels(const std::string &svm_model_1_path) {
+    /**
+     * @brief Checks if one rectangle is completely inside another.
+     *
+     * @param innerRect The inner rectangle.
+     * @param outerRect The outer rectangle.
+     * @return True if innerRect is completely inside outerRect, false otherwise.
+     */
+    void loadModels(const std::string &svm_model_path) {
 
-        assert(!svm_model_1_path.empty());
+        assert(!svm_model_path.empty());
 
         try {
-            svm_model_1 = cv::ml::SVM::load(
-                    svm_model_1_path);
+            svm_model = cv::ml::SVM::load(svm_model_path);
 
         } catch (cv::Exception &e) {
             std::cerr << "There was an error while loading the svm_model_1\n" << e.what() << std::endl;
@@ -59,54 +72,40 @@ private:
 
     }
 
-    static bool isRectInside(const cv::Rect &innerRect, const cv::Rect &outerRect) {
-        // Check if the inner rectangle's points lie within the outer rectangle
-        return (innerRect.x >= outerRect.x &&
-                innerRect.y >= outerRect.y &&
-                (innerRect.x + innerRect.width) <= (outerRect.x + outerRect.width) &&
-                (innerRect.y + innerRect.height) <= (outerRect.y + outerRect.height));
-    }
-
-
-    void removeRectsInside(std::vector<cv::Rect> &rects) {
-        auto it = rects.begin();
-
-        while (it != rects.end()) {
-            bool isInside = false;
-
-            for (const cv::Rect &otherRect: rects) {
-                if (*it != otherRect && isRectInside(*it, otherRect)) {
-                    isInside = true;
-                    break;
-                }
-            }
-
-            if (isInside) {
-                it = rects.erase(it); // Remove the rectangle if it's inside another
-            } else {
-                ++it;
-            }
-        }
-    }
-
 
 public:
 
-    PersonDetector(const std::string &svm_model_1_path,
-                   HOGDescriptor &hogDescriptor,
-                   const double scaleFactor,
-                   const std::pair<int, int> &windowSize,
-                   const double detectionThreshold1,
-                   const double detectionThreshold2, const float overlapThreshold) :
-            hogDescriptor(hogDescriptor),
-            scale_factor(scaleFactor),
-            window_size(cv::Size(windowSize.first, windowSize.second)),
-
-            detection_threshold_1(detectionThreshold1),
-            detection_threshold_2(detectionThreshold2),
-            overlap_threshold(overlapThreshold) {
-        loadModels(svm_model_1_path);
+    /**
+      * Constructs a PersonDetector object.
+      *
+      * @param svm_model_1_path The file path to the SVM model for person detection.
+      * @param hogDescriptor The HOG descriptor used for feature extraction.
+      * @param scaleFactor The factor by which the image is resized for detection.
+      * @param windowSize The size of the sliding window used for detection.
+      * @param detectionThreshold The threshold for considering a detection positive.
+      * @param overlapThreshold The threshold for non-maximum suppression.
+      * @param bgs_history The history parameter for background subtraction.
+      * @param bgs_threshold The threshold for background subtraction.
+      * @param bgs_detectShadows Flag indicating whether to detect shadows in background subtraction.
+      * @param bgs_learning_rate The learning rate for the background subtraction.
+     * @param bgs_shadow_threshold The shadow threshold for background subtraction.
+    */
+    PersonDetector(const std::string &svm_model_path, HOGDescriptor &hogDescriptor, const double scaleFactor,
+                   const std::pair<int, int> &windowSize, const double detectionThreshold, const float overlapThreshold,
+                   const int bgs_history = 500, const double bgs_threshold = 25, const bool bgs_detectShadows = true,
+                   const double bgs_learning_rate = 0.01, const double bgs_shadow_threshold = 0.5) : hogDescriptor(
+            hogDescriptor), scale_factor(scaleFactor), window_size(cv::Size(windowSize.first, windowSize.second)),
+                                                                                                     detection_threshold(
+                                                                                                             detectionThreshold),
+                                                                                                     overlap_threshold(
+                                                                                                             overlapThreshold),
+                                                                                                     bgs_learning_rate(
+                                                                                                             bgs_learning_rate) {
+        loadModels(svm_model_path);
+        this->pMOG2 = cv::createBackgroundSubtractorMOG2(bgs_history, bgs_threshold, bgs_detectShadows);
+        this->pMOG2->setShadowThreshold(bgs_shadow_threshold);
     }
+
 
 
     PersonDetector(const PersonDetector &) = default;
@@ -115,14 +114,16 @@ public:
 
     PersonDetector &operator=(const PersonDetector &) = delete;
 
+
     PersonDetector &operator=(PersonDetector &&) = delete;
 
     ~PersonDetector() = default;
 
     /**
-     * Performs object detection on the given image using a sliding window approach.
+     * Performs object detection on the given image.
      *
      * @param image The input image for object detection.
+     * @param minBboxSize Minimum size of the detected regions of interests
      * @return A pair of vectors containing detected regions (Rectangles) and corresponding confidence scores.
      */
     std::pair<std::vector<std::vector<int>>, std::vector<float>>
@@ -138,54 +139,54 @@ public:
         std::vector<float> scores;
 
 
-        cv::Mat fgMask, thresh, motionMask;
+        cv::Mat fgMask, motionMask;
 
-        pMOG2->apply(mat_image, fgMask,-1);
-
-
-        // Todo add to parameters ( int blockSize, double C)
-        cv::adaptiveThreshold(fgMask, motionMask, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C,
-                              cv::THRESH_BINARY_INV, 27, 10);
+        pMOG2->apply(mat_image, fgMask, bgs_learning_rate);
 
 #if DEBUG_MODE
-        cv::imshow("MotionMask None", motionMask);
+        cv::imshow("MotionMask None", fgMask);
 #endif
-        cv::dilate(motionMask, motionMask, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)), cv::Size(0, 0),
-                   1);
+
+        cv::threshold(fgMask, motionMask, 250, 255, cv::THRESH_BINARY);
+
+#if DEBUG_MODE
+        cv::imshow("MotionMask Binary", motionMask);
+#endif
+        cv::medianBlur(motionMask, motionMask, 3);
+
+#if DEBUG_MODE
+        cv::imshow("MotionMask MedianBlur", motionMask);
+#endif
+
+        cv::dilate(motionMask, motionMask, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7)), cv::Point(-1, -1),
+                   3);
 #if DEBUG_MODE
         cv::imshow("MotionMask Dilate", motionMask);
 #endif
         // Morphological operations to clean up the mask
-        morphologyEx(motionMask, motionMask, cv::MORPH_OPEN, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5)));
+        morphologyEx(motionMask, motionMask, cv::MORPH_OPEN, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(9, 9)));
 
 #if DEBUG_MODE
         cv::imshow("MotionMask Opening", motionMask);
 #endif
-        morphologyEx(motionMask, motionMask, cv::MORPH_CLOSE, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7)));
+        morphologyEx(motionMask, motionMask, cv::MORPH_CLOSE, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(9, 9)));
 
 #if DEBUG_MODE
         cv::imshow("MotionMask Closing", motionMask);
 #endif
         // Find contours in the foreground mask
         std::vector<std::vector<cv::Point>> contours;
-        std::vector<cv::Vec4i> hierarchy;
         // Find all contours and retrieve the full hierarchy
-        findContours(motionMask, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+        findContours(motionMask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_TC89_L1);
 
-
-        std::vector<std::vector<cv::Point>> approxContours(contours.size());
-        for (size_t i = 0; i < contours.size(); ++i) {
-            cv::approxPolyDP(contours[i], approxContours[i], 4, true); // Adjust epsilon value as needed
-        }
 
         // ============= Debug ================
 
 #if DEBUG_MODE
         // Display Contours
         cv::Mat contour_image = cv::Mat::zeros(motionMask.size(), CV_8UC3);
-        for (size_t i = 0; i < approxContours.size(); ++i) {
-            drawContours(contour_image, approxContours, static_cast<int>(i), cv::Scalar(255, 255, 255), 2, cv::LINE_8,
-                         hierarchy);
+        for (size_t i = 0; i < contours.size(); ++i) {
+            drawContours(contour_image, contours, static_cast<int>(i), cv::Scalar(255, 255, 255), 2, cv::LINE_8);
         }
 
         cv::imshow("Contours", contour_image);
@@ -193,26 +194,16 @@ public:
 
         std::vector<cv::Rect> contour_detections;
 
-        for (auto &contour: approxContours) {
+        for (auto &contour: contours) {
 
             cv::Rect rect = cv::boundingRect(contour);
 
-//            int x_orig = (int) (rect.x / scale_factor);
-//            int y_orig = (int) (rect.y / scale_factor);
-//            int w_orig = (int) (rect.width / scale_factor);
-//            int h_orig = (int) (rect.height / scale_factor);
-//
-//            cv::Rect bbox(x_orig, y_orig, w_orig, h_orig);
-
             if (rect.area() > minBboxSize) {
-//                detections.push_back(bbox);
                 contour_detections.push_back(rect);
-//                scores.push_back(1.0);
-
             }
         }
 
-        removeRectsInside(detections);
+        cv::groupRectangles(contour_detections, 0, 0);
 
         for (const cv::Rect &window: contour_detections) {
 
@@ -254,7 +245,8 @@ public:
         // Perform non-maximum suppression to filter detections
         std::vector<cv::Rect> picked = NonMaxSuppression::suppress(detections, scores, overlap_threshold);
 
-         std::vector<std::vector<int>> castedRects;
+
+        std::vector<std::vector<int>> castedRects;
 
         for (auto &r: picked) {
             std::vector<int> rectValues;
@@ -265,16 +257,15 @@ public:
             castedRects.push_back(rectValues);
 
         }
-
         return std::make_pair(castedRects, scores);
     }
 
-    /**
-     * Confirm the presence of an object in the input vector using SVM models.
-     *
-     * @param vec Input vector for confirmation.
-     * @return A pair containing confirmation status (1.0 for confirmed, else 0.0) and decision score.
-     */
+/**
+ * @brief Confirm the presence of an object in the input vector using SVM models.
+ *
+ * @param vec Input vector for confirmation.
+ * @return A pair containing confirmation status (1.0 for confirmed, else 0.0) and decision score.
+ */
     std::pair<float, float> confirm(cv::Mat vec) const {
         // Convert input vector to CV_32F format
         vec.convertTo(vec, CV_32F);
@@ -282,38 +273,18 @@ public:
         // Reshape the vector
         cv::Mat vecReshaped = vec.reshape(1, 1);
 
-        // Predict using svm_model_1
-        cv::Mat predMat_svm_1, decisionMat_1;
-        svm_model_1->predict(vecReshaped, predMat_svm_1);
-        svm_model_1->predict(vecReshaped, decisionMat_1, cv::ml::StatModel::RAW_OUTPUT);
+        // Predict using svm_model
+        cv::Mat predMat_svm, decisionMat;
+        svm_model->predict(vecReshaped, predMat_svm);
+        svm_model->predict(vecReshaped, decisionMat, cv::ml::StatModel::RAW_OUTPUT);
 
-        float pred_1 = predMat_svm_1.at<float>(0, 0);
-        float decision_1 = decisionMat_1.at<float>(0, 0);
+        float pred = predMat_svm.at<float>(0, 0);
+        float decision = decisionMat.at<float>(0, 0);
 
-
-
-        // Check condition based on prediction from svm_model_1
-        if (pred_1 == 1 && (1.0f - abs(decision_1)) > detection_threshold_1) {
-//            cout << decision_1 << endl;
-            // Predict using svm_model_2
-            float decision = (1.0f - abs(decision_1));
-
-            return std::make_pair(1.0, decision);
-//            cv::Mat predMat_svm_2, decisionMat_2;
-//            svm_model_2->predict(vecReshaped, predMat_svm_2);
-//            svm_model_2->predict(vecReshaped, decisionMat_2, cv::ml::StatModel::RAW_OUTPUT);
-//
-//            float pred_2 = predMat_svm_2.at<float>(0, 0);
-//            float decision_2 = decisionMat_2.at<float>(0, 0);
-//
-//
-//            // Check condition based on prediction from svm_model_2
-//            if (pred_2 == 1 && (1.0f - abs(decision_2)) > detection_threshold_2) {
-//
-//                float decision = ((1.0f - abs(decision_1)) + (1.0f - abs(decision_2))) / 2;
-//
-//                return std::make_pair(1.0, decision);
-//            }
+        // Check condition based on prediction from svm_model
+        if (pred == 1 && (1.0f - abs(decision)) > detection_threshold) {
+            // Predict using svm_model
+            return std::make_pair(1.0, 1.0f - abs(decision));
         }
 
         return std::make_pair<float, float>(0.0, 0.0); // Default return if conditions are not met
@@ -329,11 +300,7 @@ public:
     }
 
     const double getDetectionThreshold1() const {
-        return detection_threshold_1;
-    }
-
-    const double getDetectionThreshold2() const {
-        return detection_threshold_2;
+        return detection_threshold;
     }
 
     const float getOverlapThreshold() const {

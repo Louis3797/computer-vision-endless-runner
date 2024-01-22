@@ -4,28 +4,29 @@ import random
 import cv2
 import numpy as np
 import pygame
+from ultralytics.engine.results import Results
+from ultralytics import YOLO
 
+from src.cv.tracking.tracker import Tracker
 from src.entities.Character import Character
 from src.entities.Coin import Coin
 from src.entities.Trail import Trail
-from src.sections import calculate_sections, process_frames, calculate_dot_section
+from src.utils.sections import get_section_with_most_boxes, Sections
 from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_RECT_MARGIN, \
     WINDOW_CAPTION
-from src.optical_flow import track_optical_flow
-
-from src.tracking import HOGDescriptor, PersonDetector, PersonTracker
+from src.bindings.tracking.build.tracking import HOGDescriptor, PersonDetector
 
 # Paths to character sprites and images
 character_sprite_paths = [
-    "assets/images/kenney_tiny-ski/Tiles/tile_0071.png",
-    "assets/images/kenney_tiny-ski/Tiles/tile_0070.png"
+    "../assets/images/kenney_tiny-ski/Tiles/tile_0071.png",
+    "../assets/images/kenney_tiny-ski/Tiles/tile_0070.png"
 ]
 coin_sprite_paths = [
-    "assets/images/coin_1.png",
-    "assets/images/coin_2.png"
+    "../assets/images/coin_1.png",
+    "../assets/images/coin_2.png"
 ]
-gondola_image_foreground = "assets/images/ski_gondola.png"
-background_image = "assets/images/ground.png"
+gondola_image_foreground = "../assets/images/ski_gondola.png"
+background_image = "../assets/images/ground.png"
 
 lanes = [(((WIDTH - (64 * 3)) // 2) + x * 64) for x in range(0, 3)]
 
@@ -36,10 +37,13 @@ collected_coins_score = 0
 background_frames = []
 frame_count = 0
 
+cv2.setUseOptimized(True);
+cv2.setNumThreads(8);
+
 
 def load_digit_images(scale_factor=3):
     digit_images = [pygame.transform.scale(
-        pygame.image.load(f"assets/images/kenney_tiny-ski/Tiles/tile_00{84 + i}.png").convert_alpha(),
+        pygame.image.load(f"../assets/images/kenney_tiny-ski/Tiles/tile_00{84 + i}.png").convert_alpha(),
         (16 * scale_factor, 16 * scale_factor))
         for i in range(10)]
     return digit_images
@@ -59,13 +63,13 @@ def render_score(score, digit_images, spacing=-10):
 
 
 def move_player(player_move, character):
-    if player_move == "Section: 1":
+    if player_move == Sections.LEFT:
         character.move('left')
 
-    if player_move == "Section: 2":
+    if player_move == Sections.MID:
         character.move('middle')
 
-    if player_move == "Section: 3":
+    if player_move == Sections.RIGHT:
         character.move('right')
 
 
@@ -77,22 +81,29 @@ def main():
     # Initialize Tracking classes
     hogDescriptor = HOGDescriptor(9, (8, 8), (3, 3), 4, False, False, True, True)
 
-    scale_factor = 0.19
+
+    scale_factor = 0.3
     size = (96, 160)
-    stepSize = (10, 10)
     detection_threshold_1 = 0.5
-    detection_threshold_2 = 0.5
-    overlap_threshold = 0.6
-    downscale = 1.15
+    overlap_threshold = 0.3
+    bgs_history = 500
+    bgs_threshold = 10
+    bgs_detectShadows = True
+    bgs_learning_rate = 0.01
+    bgs_shadow_threshold = 0.5
 
     personDetector = PersonDetector(
-        "/Users/louis/CLionProjects/Tracking/models/svm_model_inria_96_160_with_flipped.xml",
-        "/Users/louis/CLionProjects/Tracking/cmake-build-debug/svm_model_tt_96_160_with_cropped_10000.xml",
-        hogDescriptor, scale_factor,
-        size, stepSize, detection_threshold_1, detection_threshold_2, overlap_threshold,
-        downscale)
+         "/Users/louis/CLionProjects/Tracking/models/svm_model_inria+neg_tt+daimler_16Kpos_15Kneg_no_flipped.xml",
 
-    personTracker = PersonTracker(personDetector)
+        hogDescriptor, scale_factor,
+        size, detection_threshold_1, overlap_threshold, bgs_history, bgs_threshold, bgs_detectShadows,
+        bgs_learning_rate, bgs_shadow_threshold)
+    tracker = Tracker(max_age=50,
+                      min_hits=3,
+                      iou_threshold=0.3, iou_metric_weight=2.0,
+                      orb_metric_weight=1.0)
+
+    model = YOLO('yolov8n.pt')
 
     # Initialize Pygame screen and clock
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -131,13 +142,6 @@ def main():
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
-    sections = calculate_sections(width, height)
-
-    bbox = [500, 25, 300, 300]
-    # TODO GET BOUNDING BOX FROM DETECTION
-
-    prev_gray = None
-    prev_dot = None
 
     while running:
         clock.tick(FPS)
@@ -221,28 +225,63 @@ def main():
         ret, frame = cap.read()
         if ret:
 
-            frame = cv2.resize(frame, (365, 205), interpolation=cv2.INTER_AREA)
+            output = frame.copy()
+            np.flip(output, 1)
+
+
             grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            resized_grey = cv2.resize(grey, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_AREA)
 
-            trackRes = personTracker.track(grey)
+            # detections = personDetector.detect(resized_grey, 10000)
+            #
+            # rects = np.array(detections[0])  # rect format is [x, y, width, height]
+            # confidenceScores = np.array(detections[1])  # array of float - example [0.87, 1.0, 0.9]
 
-            print(trackRes)
+            rects = []
+            confidenceScores = []
+            results: Results = model(frame)
 
-            if prev_gray is None:
-                prev_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            for i in range(results[0].boxes.xyxy.shape[0]):
+                cls = results[0].boxes.cls.tolist()
+                conf = results[0].boxes.conf.tolist()
+                b = results[0].boxes.xyxy.tolist()
 
-            prev_gray, prev_dot, bbox = track_optical_flow(prev_gray, frame, prev_dot, bbox)
+                if cls[i] == 0 and conf[i] > 0.5:
+                    rects.append(b[i])
+                    confidenceScores.append(conf[i])
 
-            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+            rects = np.array(rects)
+            rects = rects.astype(int)
+            if len(rects) > 0:
+                # rects[:, 2:4] += rects[:, 0:2]  # convert to [x1,y1,w,h] to [x1,y1,x2,y2]
 
-            cv2.circle(frame, (int(prev_dot[0]), int(prev_dot[1])), 5, (255, 0, 0), -1)
+                tracks = tracker.update(frame, rects, confidenceScores)
 
-            player_move = process_frames(frame, prev_dot[0], sections)
+                temp_bboxes = [t[:4].astype(int) for t in tracks]
 
-            move_player(player_move, character)
+                for t in tracks:
+                    bbox = t[:4].astype(int)
+                    track_id = int(t[4])
+                    track_conf = t[5]
+                    track_color_r = t[6]
+                    track_color_g = t[7]
+                    track_color_b = t[8]
+                    print(t)
+                    print("tracks color: " + str((track_color_r, track_color_b, track_color_g)))
+
+                    cv2.rectangle(output, (bbox[0], bbox[1]), (bbox[2], bbox[3]),
+                                  (track_color_r, track_color_b, track_color_g), 3)
+                    cv2.putText(output, f"id: {track_id} conf: {track_conf:0.2f}", (bbox[0], bbox[1] - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 2, (track_color_r, track_color_b, track_color_g), 2)
+
+                player_move = get_section_with_most_boxes(frame, temp_bboxes)
+
+                print(player_move)
+
+                move_player(player_move, character)
             # result = cv2.resize(frame, (CAMERA_WIDTH, CAMERA_HEIGHT))
 
-            cv2.imshow("Split Frame", frame)
+            cv2.imshow("output", output)
 
             # result = np.rot90(result)
             # camera_surface = pygame.surfarray.make_surface(result)
