@@ -42,14 +42,13 @@ class Track(object):
         self.hits = 0
         self.hit_streak = 0
         self.age = 0
-        self.velocity = np.array([0, 0])
         self.color = color
         self.orb_keypoints = orb_keypoints
         self.orb_descriptors = orb_descriptors
 
     def update(self, bbox, conf, orb_keypoints=None, orb_descriptors=None):
         """
-        Updates the state vector with observed bbox.
+        Updates the Track
         """
         self.kf.update(xxyy_to_xysr(bbox))
         self.orb_keypoints = orb_keypoints
@@ -58,11 +57,6 @@ class Track(object):
         self.hits += 1
         self.hit_streak += 1
         self.conf = conf
-
-        current_position = xxyy_to_xysr(bbox)[:2]
-        if len(self.history) > 0:
-            previous_position = self.history[-1][:2]
-            self.velocity = current_position - previous_position
 
     def predict(self):
         """

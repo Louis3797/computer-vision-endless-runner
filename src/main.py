@@ -4,9 +4,6 @@ import random
 import cv2
 import numpy as np
 import pygame
-from ultralytics.engine.results import Results
-from ultralytics import YOLO
-
 from src.cv.tracking.tracker import Tracker
 from src.entities.Character import Character
 from src.entities.Coin import Coin
@@ -90,7 +87,6 @@ def main():
     # Initialize Tracking classes
     hogDescriptor = HOGDescriptor(9, (8, 8), (3, 3), 4, False, False, True, True)
 
-
     scale_factor = 0.3
     size = (96, 160)
     detection_threshold_1 = 0.5
@@ -102,18 +98,15 @@ def main():
     bgs_shadow_threshold = 0.5
 
     personDetector = PersonDetector(
-         "/Users/louis/CLionProjects/Tracking/models/svm_model_inria+neg_tt+daimler_16Kpos_15Kneg_no_flipped.xml",
-
+        "/Users/louis/CLionProjects/Tracking/models/svm_model_inria+neg_tt+daimler_16Kpos_15Kneg_no_flipped.xml",
         hogDescriptor, scale_factor,
         size, detection_threshold_1, overlap_threshold, bgs_history, bgs_threshold, bgs_detectShadows,
         bgs_learning_rate, bgs_shadow_threshold)
+
     tracker = Tracker(max_age=50,
                       min_hits=3,
                       iou_threshold=0.3, iou_metric_weight=2.0,
                       orb_metric_weight=1.0)
-
-    model = YOLO('yolov8n.pt')
-
     # Initialize Pygame screen and clock
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption(WINDOW_CAPTION)
@@ -245,7 +238,6 @@ def main():
             scroll_gondola = 0
 
             # Display the collected coin count
-        # coin_text = font.render(f"Coins: {collected_coins_score}", True, (0, 0, 0))
         coin_text = render_score(collected_coins_score, digit_images)
         screen.blit(coin_text, (WIDTH / 2 - (coin_text.get_width() / 2), 10))
 
@@ -256,32 +248,16 @@ def main():
             output = frame.copy()
             np.flip(output, 1)
 
-
             grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             resized_grey = cv2.resize(grey, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_AREA)
 
-            # detections = personDetector.detect(resized_grey, 10000)
-            #
-            # rects = np.array(detections[0])  # rect format is [x, y, width, height]
-            # confidenceScores = np.array(detections[1])  # array of float - example [0.87, 1.0, 0.9]
+            detections = personDetector.detect(resized_grey, 4000)
 
-            rects = []
-            confidenceScores = []
-            results: Results = model(frame)
+            rects = np.array(detections[0])  # rect format is [x, y, width, height]
+            confidenceScores = np.array(detections[1])  # array of float - example [0.87, 1.0, 0.9]
 
-            for i in range(results[0].boxes.xyxy.shape[0]):
-                cls = results[0].boxes.cls.tolist()
-                conf = results[0].boxes.conf.tolist()
-                b = results[0].boxes.xyxy.tolist()
-
-                if cls[i] == 0 and conf[i] > 0.5:
-                    rects.append(b[i])
-                    confidenceScores.append(conf[i])
-
-            rects = np.array(rects)
-            rects = rects.astype(int)
             if len(rects) > 0:
-                # rects[:, 2:4] += rects[:, 0:2]  # convert to [x1,y1,w,h] to [x1,y1,x2,y2]
+                rects[:, 2:4] += rects[:, 0:2]  # convert to [x1,y1,w,h] to [x1,y1,x2,y2]
 
                 tracks = tracker.update(frame, rects, confidenceScores)
 

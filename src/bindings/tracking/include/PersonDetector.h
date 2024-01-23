@@ -127,7 +127,7 @@ public:
      * @return A pair of vectors containing detected regions (Rectangles) and corresponding confidence scores.
      */
     std::pair<std::vector<std::vector<int>>, std::vector<float>>
-    detect(const Eigen::MatrixXd &image, unsigned int minBboxSize = 10000) {
+    detect(const Eigen::MatrixXd &image, unsigned int minBboxSize = 10000, const unsigned int dilateIterations=2, const unsigned int dilateKernelSize =7, const unsigned int openingKernelSize=9, const unsigned int closingKernelSize=9) {
 
         cv::Mat mat_image;
         cv::eigen2cv(image, mat_image);
@@ -158,18 +158,18 @@ public:
         cv::imshow("MotionMask MedianBlur", motionMask);
 #endif
 
-        cv::dilate(motionMask, motionMask, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7)), cv::Point(-1, -1),
-                   3);
+        cv::dilate(motionMask, motionMask, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(dilateKernelSize, dilateKernelSize)), cv::Point(-1, -1),
+                   dilateIterations);
 #if DEBUG_MODE
         cv::imshow("MotionMask Dilate", motionMask);
 #endif
         // Morphological operations to clean up the mask
-        morphologyEx(motionMask, motionMask, cv::MORPH_OPEN, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(9, 9)));
+        morphologyEx(motionMask, motionMask, cv::MORPH_OPEN, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(openingKernelSize, openingKernelSize)));
 
 #if DEBUG_MODE
         cv::imshow("MotionMask Opening", motionMask);
 #endif
-        morphologyEx(motionMask, motionMask, cv::MORPH_CLOSE, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(9, 9)));
+        morphologyEx(motionMask, motionMask, cv::MORPH_CLOSE, getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(closingKernelSize, closingKernelSize)));
 
 #if DEBUG_MODE
         cv::imshow("MotionMask Closing", motionMask);

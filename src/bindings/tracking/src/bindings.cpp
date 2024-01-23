@@ -36,6 +36,6 @@ PYBIND11_MODULE(tracking, m) {
                    HOGDescriptor &,
                    const double ,
                    const std::pair<int, int> &, const double, const float, const int, const double, const bool, const double, const double>())
-        .def("detect", &PersonDetector::detect, py::arg("image"), py::arg("minBboxSize"));
+        .def("detect", &PersonDetector::detect, py::arg("image"), py::arg("minBboxSize"), py::arg("dilateIterations"), py::arg("dilateKernelSize"),py::arg("openingKernelSize"),py::arg("closingKernelSize"));
 
 }
