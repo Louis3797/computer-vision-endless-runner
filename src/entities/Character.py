@@ -1,4 +1,14 @@
+from enum import Enum
+
 import pygame
+
+from src.utils.sections import Sections
+
+
+class CharacterMovement(Enum):
+    LEFT = 1
+    MIDDLE = 2
+    RIGHT = 3
 
 
 class Character(pygame.sprite.Sprite):
@@ -31,16 +41,27 @@ class Character(pygame.sprite.Sprite):
             self.image = self.frames[self.current_frame]
             self.last_frame_time = current_time
 
-    def move(self, direction):
-        if direction == 'left' and self.rect.x > 384:
+    def _move(self, direction: CharacterMovement):
+        if direction == CharacterMovement.LEFT and self.rect.x > 384:
             self.rect.x -= self.vel
-        elif direction == 'right' and self.rect.x < 512:
+        elif direction == CharacterMovement.RIGHT and self.rect.x < 512:
             self.rect.x += self.vel
 
-        elif direction == 'middle' and (self.rect.x > 448 or self.rect.x < 448):
+        elif direction == CharacterMovement.MIDDLE and (self.rect.x > 448 or self.rect.x < 448):
             if self.rect.x < 448:
                 self.rect.x += self.vel
             else:
                 self.rect.x -= self.vel
+
+    def move_player(self, player_move):
+        if player_move == Sections.LEFT:
+            self._move(CharacterMovement.LEFT)
+
+        if player_move == Sections.MID:
+            self._move(CharacterMovement.MIDDLE)
+
+        if player_move == Sections.RIGHT:
+            self._move(CharacterMovement.RIGHT)
+
 
 

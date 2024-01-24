@@ -9,10 +9,10 @@ from src.entities.Character import Character
 from src.entities.Coin import Coin
 from src.entities.Obstacle import Obstacle
 from src.entities.Trail import Trail
-from src.utils.sections import get_section_with_most_boxes, Sections
-from src.utils.constants import WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_RECT_MARGIN, \
-    WINDOW_CAPTION
-from src.bindings.tracking.build.tracking import HOGDescriptor, PersonDetector
+from src.utils.sections import get_section_with_most_boxes
+from src.utils.constants import (WIDTH, HEIGHT, FPS, SCROLL_SPEED, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_RECT_MARGIN, \
+                                 WINDOW_CAPTION)
+from src.bindings.tracking.build.tracking import HOGDescriptor, PersonDetector # ignore this error
 
 # Paths to character sprites and images
 character_sprite_paths = [
@@ -43,8 +43,8 @@ rock_last_spawn_time = 0
 background_frames = []
 frame_count = 0
 
-cv2.setUseOptimized(True);
-cv2.setNumThreads(8);
+cv2.setUseOptimized(True)
+cv2.setNumThreads(8)
 
 
 def load_digit_images(scale_factor=3):
@@ -68,17 +68,6 @@ def render_score(score, digit_images, spacing=-10):
     return rendered_score
 
 
-def move_player(player_move, character):
-    if player_move == Sections.LEFT:
-        character.move('left')
-
-    if player_move == Sections.MID:
-        character.move('middle')
-
-    if player_move == Sections.RIGHT:
-        character.move('right')
-
-
 def main():
     global coin_last_spawn_time, collected_coins_score, rock_last_spawn_time
     pygame.init()
@@ -92,13 +81,13 @@ def main():
     detection_threshold_1 = 0.5
     overlap_threshold = 0.3
     bgs_history = 500
-    bgs_threshold = 10
-    bgs_detectShadows = True
+    bgs_threshold = 15
+    bgs_detectShadows = False
     bgs_learning_rate = 0.01
     bgs_shadow_threshold = 0.5
 
     personDetector = PersonDetector(
-        "/Users/louis/CLionProjects/Tracking/models/svm_model_inria+neg_tt+daimler_16Kpos_15Kneg_no_flipped.xml",
+        "../src/cv/svm_models/svm_model_inria+neg_tt+daimler_16Kpos_15Kneg_no_flipped.xml",
         hogDescriptor, scale_factor,
         size, detection_threshold_1, overlap_threshold, bgs_history, bgs_threshold, bgs_detectShadows,
         bgs_learning_rate, bgs_shadow_threshold)
@@ -138,12 +127,8 @@ def main():
     trail = Trail(max_length=50)
 
     digit_images = load_digit_images()
-    font = pygame.font.Font(None, 36)
 
     running = True
-
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     while running:
         clock.tick(FPS)
@@ -190,13 +175,10 @@ def main():
         collected_coins = pygame.sprite.spritecollide(character, coins, True)
         for _ in collected_coins:
             collected_coins_score += 1
-            # print("Collected coin!")
-            # print(f"Score: {collected_coins_score}")
 
         # kill coin if its out of the image
         for coin in coins:
             if coin.rect.y < -64:
-                # print("Killed coin")
                 coin.kill()
 
         if current_time - rock_last_spawn_time > rock_spawn_delay:
@@ -220,6 +202,7 @@ def main():
         trail.add_frame(character.rect)
         trail.update()
         trail.draw(screen)  # Draw the trail on the screen
+
         # Draw all sprites
         all_sprites.draw(screen)
         coins.update(current_time)
@@ -237,21 +220,21 @@ def main():
         if scroll_gondola > gondola_image.get_height():
             scroll_gondola = 0
 
-            # Display the collected coin count
+        # Display the collected coin count
         coin_text = render_score(collected_coins_score, digit_images)
         screen.blit(coin_text, (WIDTH / 2 - (coin_text.get_width() / 2), 10))
 
         # Capture a frame from the camera
         ret, frame = cap.read()
         if ret:
-
+            frame = np.flip(frame, 1)
             output = frame.copy()
-            np.flip(output, 1)
 
+            # The tracking takes place here
             grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             resized_grey = cv2.resize(grey, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_AREA)
 
-            detections = personDetector.detect(resized_grey, 4000)
+            detections = personDetector.detect(resized_grey, 10000, 3, 7, 9, 9)
 
             rects = np.array(detections[0])  # rect format is [x, y, width, height]
             confidenceScores = np.array(detections[1])  # array of float - example [0.87, 1.0, 0.9]
@@ -270,26 +253,28 @@ def main():
                     track_color_r = t[6]
                     track_color_g = t[7]
                     track_color_b = t[8]
-                    print(t)
-                    print("tracks color: " + str((track_color_r, track_color_b, track_color_g)))
 
                     cv2.rectangle(output, (bbox[0], bbox[1]), (bbox[2], bbox[3]),
-                                  (track_color_r, track_color_b, track_color_g), 3)
+                                  (track_color_r, track_color_b, track_color_g), 5)
                     cv2.putText(output, f"id: {track_id} conf: {track_conf:0.2f}", (bbox[0], bbox[1] - 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 2, (track_color_r, track_color_b, track_color_g), 2)
 
                 player_move = get_section_with_most_boxes(frame, temp_bboxes)
 
-                print(player_move)
+                character.move_player(player_move)
 
-                move_player(player_move, character)
-            # result = cv2.resize(frame, (CAMERA_WIDTH, CAMERA_HEIGHT))
 
-            cv2.imshow("output", output)
+            # For debugging
+            if False:  # Change to True to display the tracking output
+                cv2.imshow("output", output)
 
-            # result = np.rot90(result)
-            # camera_surface = pygame.surfarray.make_surface(result)
-            # screen.blit(camera_surface, (WIDTH - CAMERA_WIDTH - CAMERA_RECT_MARGIN, CAMERA_RECT_MARGIN))
+            # Display tracking output in the right top corner of the game
+            result = cv2.resize(output, (CAMERA_WIDTH, CAMERA_HEIGHT))
+            result = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+            result = np.flip(result, 1)
+            result = np.rot90(result)
+            camera_surface = pygame.surfarray.make_surface(result)
+            screen.blit(camera_surface, (WIDTH - CAMERA_WIDTH - CAMERA_RECT_MARGIN, CAMERA_RECT_MARGIN))
 
         pygame.display.update()
 
